@@ -1,16 +1,23 @@
 package com.shaubert.idea.android.toolbox;
 
-import com.intellij.ide.highlighter.JavaFileType;
 import com.intellij.ide.projectView.impl.nodes.PackageUtil;
 import com.intellij.ide.util.PackageChooserDialog;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.ModuleRootManager;
+import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.*;
+import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiDirectory;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiPackage;
+import com.intellij.psi.codeStyle.CodeStyleManager;
+import com.intellij.psi.codeStyle.JavaCodeStyleManager;
 
 
 public class GenerateViewPresenterAction extends AnAction {
@@ -31,26 +38,66 @@ public class GenerateViewPresenterAction extends AnAction {
     private PsiPackage lastSelectedPackage;
 
     public void actionPerformed(AnActionEvent e) {
+        Project project = e.getData(PlatformDataKeys.PROJECT);
         try {
-            Project project = e.getData(PlatformDataKeys.PROJECT);
+            if (project == null) {
+                throw new CancellationException("Unable to retrieve project");
+            }
             VirtualFile layoutFile = getSelectedLayoutFile(e);
+            Module module = getModuleOfFile(project, layoutFile);
+            AndroidManifest androidManifest = getAndroidManifest(module);
+            AndroidView androidView = getAndroidViews(layoutFile);
+
             CodeGenerationPattern pattern = selectCodeGenerationPattern(project, layoutFile);
-            PsiPackage selectedPackage = selectDestinationPackage(project);
-            PsiDirectory resultDirectory = getPsiDirectoryFromPackage(project, selectedPackage);
+            PsiPackage selectedPackage = selectDestinationPackage(module, androidManifest);
+            PsiDirectory resultDirectory = getPsiDirectoryFromPackage(selectedPackage);
             String fileName = selectJavaClassName(project, layoutFile);
-            throwIfFileAlreadyExists(project, resultDirectory, fileName);
+            throwIfFileAlreadyExists(resultDirectory, fileName);
             String className = extractClassName(fileName);
-            String classBody = pattern.generateOutput(layoutFile, selectedPackage.getQualifiedName() + "." + className);
-            saveBodyToFile(project, resultDirectory, fileName, classBody);
+
+            String outputClassName = selectedPackage.getQualifiedName() + "." + className;
+            PsiClass resultClass = pattern.generateOutput(project, androidManifest, androidView, outputClassName);
+            saveClass(resultDirectory, resultClass);
         } catch (CancellationException ignored) {
+            if (ignored.getMessage() != null && project != null) {
+                Messages.showErrorDialog(project, ignored.getMessage(), "Error");
+            }
         }
     }
 
-    private void throwIfFileAlreadyExists(Project project, PsiDirectory resultDirectory, String fileName) {
+    private AndroidManifest getAndroidManifest(Module module) {
+        VirtualFile manifestFile = getManifestFile(module);
+        AndroidManifest androidManifest = new AndroidManifestParser().parse(manifestFile);
+        if (androidManifest == null) {
+            throw new CancellationException("Failed to read AndroidManifest.xml");
+        }
+        return androidManifest;
+    }
+
+    private VirtualFile getManifestFile(Module module) {
+        ModuleRootManager moduleRootManager = ModuleRootManager.getInstance(module);
+        VirtualFile[] contentRoots = moduleRootManager.getContentRoots();
+        for (VirtualFile contentRoot : contentRoots) {
+            if (contentRoot.isDirectory()) {
+                for (VirtualFile child : contentRoot.getChildren()) {
+                    if (!child.isDirectory() && "AndroidManifest.xml".equals(child.getName())) {
+                        return child;
+                    }
+                }
+            }
+        }
+        throw new CancellationException("AndroidManifest.xml not found");
+    }
+
+    private AndroidView getAndroidViews(VirtualFile layoutFile) {
+        AndroidLayoutParser parser = new AndroidLayoutParser();
+        return parser.parse(layoutFile);
+    }
+
+    private void throwIfFileAlreadyExists(PsiDirectory resultDirectory, String fileName) {
         for (PsiFile file : resultDirectory.getFiles()) {
             if (file.getName().equalsIgnoreCase(fileName)) {
-                Messages.showErrorDialog(project, "File \"" + fileName + "\" already exists", "Failed To Create File");
-                throw new CancellationException();
+                throw new CancellationException("File \"" + fileName + "\" already exists");
             }
         }
     }
@@ -60,28 +107,31 @@ public class GenerateViewPresenterAction extends AnAction {
         if (files != null && files.length > 0) {
             return files[0];
         } else {
-            throw new CancellationException();
+            throw new CancellationException("Select android layout file");
         }
     }
 
-    private void saveBodyToFile(final Project project, final PsiDirectory resultDirectory,
-                                final String fileName, final String classBody) {
+    private void saveClass(final PsiDirectory resultDirectory, final PsiClass resultClass) {
         if (resultDirectory != null) {
-            if (classBody != null) {
+            if (resultClass != null) {
                 ApplicationManager.getApplication().runWriteAction(new Runnable() {
                     @Override
                     public void run() {
-                        PsiFile file = PsiFileFactory.getInstance(project).createFileFromText(
-                                fileName, JavaFileType.INSTANCE, classBody);
-                        PsiFile added = (PsiFile) resultDirectory.add(file);
-                        added.navigate(true);
+                        PsiClass added = (PsiClass) resultDirectory.add(resultClass);
+                        PsiFile psiFile = added.getNavigationElement().getContainingFile();
+                        JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(added.getProject());
+                        styleManager.optimizeImports(psiFile);
+                        CodeStyleManager codeStyleManager = CodeStyleManager.getInstance(added.getProject());
+                        PsiClass formatted = (PsiClass) codeStyleManager.reformat(added);
+                        formatted.navigate(true);
                     }
                 });
             }
         }
     }
 
-    private PsiDirectory getPsiDirectoryFromPackage(Project project, PsiPackage selectedPackage) {
+    private PsiDirectory getPsiDirectoryFromPackage(PsiPackage selectedPackage) {
+        Project project = selectedPackage.getProject();
         PsiDirectory[] directories = PackageUtil.getDirectories(selectedPackage, project, null, false);
         if (directories.length > 1) {
             String[] dirs = new String[directories.length];
@@ -93,7 +143,7 @@ public class GenerateViewPresenterAction extends AnAction {
                     Messages.getQuestionIcon(),
                     dirs,
                     dirs[0]);
-            if (index > 0) {
+            if (index >= 0) {
                 return directories[index];
             }
         } else if (directories.length == 1) {
@@ -107,7 +157,7 @@ public class GenerateViewPresenterAction extends AnAction {
         if (index > 0) {
             return fileName.substring(0, index);
         } else {
-            throw new CancellationException();
+            throw new CancellationException("Bad java file name: " + fileName);
         }
     }
 
@@ -117,12 +167,12 @@ public class GenerateViewPresenterAction extends AnAction {
         if (index > 0) {
             layoutFileName = layoutFileName.substring(0, index);
         }
-        String className = ClassNameHelper.formatCamelCaseFromUnderscore(layoutFileName);
-        className = ClassNameHelper.upperCaseLetter(className, 0);
+        String className = ClassHelper.formatCamelCaseFromUnderscore(layoutFileName);
+        className = ClassHelper.upperCaseLetter(className, 0);
         String fileName = Messages.showInputDialog(project, "Input class name", "Creating File",
                 Messages.getQuestionIcon(), className, null);
         if (fileName == null || fileName.length() == 0) {
-            throw new CancellationException();
+            throw new CancellationException("Incorrect file name");
         }
         if (!fileName.contains(".java")) {
             fileName += ".java";
@@ -130,16 +180,27 @@ public class GenerateViewPresenterAction extends AnAction {
         return fileName;
     }
 
-    private PsiPackage selectDestinationPackage(Project project) {
-        PackageChooserDialog packageChooserDialog = new PackageChooserDialog("Destination Package", project);
+    private PsiPackage selectDestinationPackage(Module module, AndroidManifest manifest) {
+        PackageChooserDialog packageChooserDialog = new PackageChooserDialog("Destination Package", module);
         if (lastSelectedPackage != null) {
             packageChooserDialog.selectPackage(lastSelectedPackage.getQualifiedName());
+        } else {
+            packageChooserDialog.selectPackage(manifest.getPackageName());
         }
         if (packageChooserDialog.showAndGet()) {
             return lastSelectedPackage = packageChooserDialog.getSelectedPackage();
         } else {
             throw new CancellationException();
         }
+    }
+
+    private Module getModuleOfFile(Project project, VirtualFile layoutFile) {
+        ProjectRootManager rootManager = ProjectRootManager.getInstance(project);
+        Module module = rootManager.getFileIndex().getModuleForFile(layoutFile);
+        if (module == null) {
+            throw new CancellationException("Failed to determine module with selected layout");
+        }
+        return module;
     }
 
     private CodeGenerationPattern selectCodeGenerationPattern(Project project, VirtualFile first) {
@@ -170,5 +231,11 @@ public class GenerateViewPresenterAction extends AnAction {
     }
 
     public static class CancellationException extends RuntimeException {
+        public CancellationException() {
+        }
+
+        public CancellationException(String message) {
+            super(message);
+        }
     }
 }

@@ -1,6 +1,11 @@
 package com.shaubert.idea.android.toolbox;
 
-public class ClassNameHelper {
+import com.intellij.openapi.project.Project;
+import com.intellij.psi.JavaPsiFacade;
+import com.intellij.psi.PsiClass;
+import com.intellij.psi.search.EverythingGlobalScope;
+
+public class ClassHelper {
 
     public static String getClassNameFromFullQualified(String fullQualified) {
         int lastPoint = fullQualified.lastIndexOf(".");
@@ -47,5 +52,14 @@ public class ClassNameHelper {
 
     public static void upperCaseLetter(StringBuilder builder, int charIndex) {
         builder.replace(charIndex, charIndex + 1, String.valueOf(builder.charAt(charIndex)).toUpperCase());
+    }
+
+    public static PsiClass findClass(Project project, String className) {
+        JavaPsiFacade psiFacade = JavaPsiFacade.getInstance(project);
+        PsiClass viewClass = psiFacade.findClass(className, new EverythingGlobalScope(project));
+        if (viewClass == null) {
+            throw new GenerateViewPresenterAction.CancellationException("Class not found: " + className);
+        }
+        return viewClass;
     }
 }

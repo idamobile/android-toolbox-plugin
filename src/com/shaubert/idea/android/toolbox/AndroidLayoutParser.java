@@ -9,26 +9,37 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 public class AndroidLayoutParser extends DefaultHandler {
 
-    private List<AndroidView> result = new ArrayList<AndroidView>();
+    public enum DuplicateIdPolicy {
+        KEEP,
+        REMOVE;
+    }
+    public static final DuplicateIdPolicy DEFAUL_DUPLICATE_ID_POLICY = DuplicateIdPolicy.KEEP;
 
-    public List<AndroidView> parse(VirtualFile virtualFile) {
-        result.clear();
+    private AndroidView result = new AndroidView();
+    private AndroidView currentView;
+
+    private DuplicateIdPolicy duplicateIdPolicy = DEFAUL_DUPLICATE_ID_POLICY;
+
+    public AndroidView parse(VirtualFile virtualFile) {
+        return parse(virtualFile, DEFAUL_DUPLICATE_ID_POLICY);
+    }
+
+    public AndroidView parse(VirtualFile virtualFile, DuplicateIdPolicy duplicateIdPolicy) {
         try {
-            return parse(virtualFile.getInputStream());
+            return parse(virtualFile.getInputStream(), duplicateIdPolicy);
         } catch (IOException e) {
             e.printStackTrace();
-            return Collections.emptyList();
+            return new AndroidView();
         }
     }
 
-    public List<AndroidView> parse(InputStream inputStream) {
-        result.clear();
+    public AndroidView parse(InputStream inputStream, DuplicateIdPolicy duplicateIdPolicy) {
+        this.duplicateIdPolicy = duplicateIdPolicy;
+        this.result = new AndroidView();
+        this.currentView = result;
         try {
             SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
             SAXParser saxParser = saxParserFactory.newSAXParser();
@@ -36,7 +47,7 @@ public class AndroidLayoutParser extends DefaultHandler {
             return result;
         } catch (Exception e) {
             e.printStackTrace();
-            return Collections.emptyList();
+            return new AndroidView();
         } finally {
             if (inputStream != null) {
                 try {
@@ -56,8 +67,17 @@ public class AndroidLayoutParser extends DefaultHandler {
             int idStart = id.indexOf("/");
             if (idStart >= 0) {
                 view.setIdValue(id.substring(idStart + 1));
-                result.add(view);
+                currentView.addSubView(view, duplicateIdPolicy);
+                currentView = view;
             }
+        }
+    }
+
+    @Override
+    public void endElement(String uri, String localName, String qName) throws SAXException {
+        if (currentView.getParent() != null
+                && currentView.getTagName().equals(qName)) {
+            currentView = currentView.getParent();
         }
     }
 }

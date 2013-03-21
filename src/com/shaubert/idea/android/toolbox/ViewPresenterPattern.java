@@ -1,8 +1,7 @@
 package com.shaubert.idea.android.toolbox;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.util.List;
+import com.intellij.openapi.project.Project;
+import com.intellij.psi.PsiClass;
 
 public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
 
@@ -12,6 +11,7 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
     }
 
     @Override
-    protected void generateBody(List<AndroidView> androidViews, String canonicalPath, BufferedWriter writer) throws IOException {
+    protected void generateBody(AndroidView androidView, PsiClass psiClass, Project project) {
     }
+
 }

@@ -1,5 +1,8 @@
 package com.shaubert.idea.android.toolbox;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class AndroidView {
     private String tagName;
     private String classSimpleName;
@@ -7,12 +10,10 @@ public class AndroidView {
     private String idValue;
     private String camelCaseId;
 
-    public AndroidView() {
-    }
+    private AndroidView parent;
+    private List<AndroidView> subViews = new ArrayList<AndroidView>();
 
-    public AndroidView(String tagName, String idValue) {
-        this.tagName = tagName;
-        this.idValue = idValue;
+    public AndroidView() {
     }
 
     public String getTagName() {
@@ -23,7 +24,7 @@ public class AndroidView {
         this.tagName = tagName.trim();
         if (tagName.contains(".")) {
             className = tagName;
-            classSimpleName = ClassNameHelper.getClassNameFromFullQualified(className);
+            classSimpleName = ClassHelper.getClassNameFromFullQualified(className);
         } else {
             className = "android.widget." + tagName;
             classSimpleName = tagName;
@@ -36,7 +37,19 @@ public class AndroidView {
 
     public void setIdValue(String idValue) {
         this.idValue = idValue;
-        camelCaseId = ClassNameHelper.formatCamelCaseFromUnderscore(idValue);
+        camelCaseId = ClassHelper.formatCamelCaseFromUnderscore(idValue);
+    }
+
+    public void addSubView(AndroidView view, AndroidLayoutParser.DuplicateIdPolicy duplicateIdPolicy) {
+        if (duplicateIdPolicy == AndroidLayoutParser.DuplicateIdPolicy.REMOVE) {
+            for (AndroidView subView : subViews) {
+                if (subView.getIdValue().endsWith(view.getIdValue())) {
+                    return;
+                }
+            }
+        }
+        view.setParent(this);
+        this.subViews.add(view);
     }
 
     public String getCamelCaseId() {
@@ -49,5 +62,17 @@ public class AndroidView {
 
     public String getClassName() {
         return className;
+    }
+
+    public List<AndroidView> getSubViews() {
+        return subViews;
+    }
+
+    public AndroidView getParent() {
+        return parent;
+    }
+
+    public void setParent(AndroidView parent) {
+        this.parent = parent;
     }
 }

@@ -1,70 +1,37 @@
 package com.shaubert.idea.android.toolbox;
 
-import com.intellij.openapi.vfs.VirtualFile;
-import org.codehaus.groovy.runtime.StringBufferWriter;
-
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import com.intellij.openapi.project.Project;
+import com.intellij.psi.*;
+import com.intellij.psi.codeStyle.JavaCodeStyleManager;
 
 public abstract class AbstractCodeGenerationPattern implements CodeGenerationPattern {
 
+    public static final String ANDROID_VIEW_CLASS = "android.view.View";
+
     @Override
-    public String generateOutput(VirtualFile xmlLayoutFile, String outputClass) {
-        AndroidLayoutParser parser = new AndroidLayoutParser();
-        List<AndroidView> androidViews = parser.parse(xmlLayoutFile);
-        if (!androidViews.isEmpty()) {
-            StringBuffer buffer = new StringBuffer();
-            BufferedWriter writer = null;
-            try {
-                writer = new BufferedWriter(new StringBufferWriter(buffer));
-                generateOutput(androidViews, outputClass, writer);
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                if (writer != null) {
-                    try {
-                        writer.close();
-                    } catch (IOException ignored) {
-                    }
-                }
-            }
-            return buffer.toString();
+    public PsiClass generateOutput(Project project, AndroidManifest androidManifest, AndroidView androidView, String outputClass) {
+        if (!androidView.getSubViews().isEmpty()) {
+            return generateOutput(androidView, androidManifest, outputClass, project);
         }
         return null;
     }
 
-    protected void generateOutput(List<AndroidView> androidViews,
-                                  String canonicalPath, BufferedWriter writer) throws IOException {
-        generatePackage(canonicalPath, writer);
-        generateImports(androidViews, writer);
-        generateBody(androidViews, canonicalPath, writer);
+    protected PsiClass generateOutput(AndroidView androidView, AndroidManifest androidManifest, String canonicalPath, Project project) {
+        PsiElementFactory factory = JavaPsiFacade.getElementFactory(project);
+        PsiClass psiClass = factory.createClass(ClassHelper.getClassNameFromFullQualified(canonicalPath));
+        generateBody(androidView, psiClass, project);
+        addRClassImport(psiClass, androidManifest);
+        return psiClass;
     }
 
-    protected abstract void generateBody(List<AndroidView> androidViews,
-                                         String canonicalPath, BufferedWriter writer) throws IOException;
-
-    protected void generatePackage(String packageName, BufferedWriter writer) throws IOException {
-        writer.write("package " + ClassNameHelper.extractPackageName(packageName) + ";");
-        writer.write("\n\n");
+    private void addRClassImport(PsiClass psiClass, AndroidManifest androidManifest) {
+        PsiClass rClass = ClassHelper.findClass(psiClass.getProject(), androidManifest.getPackageName() + ".R");
+        PsiFile containingFile = psiClass.getNavigationElement().getContainingFile();
+        JavaCodeStyleManager manager = JavaCodeStyleManager.getInstance(psiClass.getProject());
+        manager.addImport((PsiJavaFile) containingFile, rClass);
     }
 
-    protected void generateImports(List<AndroidView> androidViews, BufferedWriter writer) throws IOException {
-        Set<String> foundClasses = new HashSet<String>();
-        for (AndroidView view : androidViews) {
-            foundClasses.add(view.getClassName());
-        }
-        for (String className : foundClasses) {
-            appendImport(className, writer);
-        }
-    }
-
-    protected void appendImport(String className, BufferedWriter writer) throws IOException {
-        writer.write("import " + className + ";");
-        writer.write("\n");
-    }
+    protected abstract void generateBody(AndroidView androidView, PsiClass psiClass, Project project);
 
     protected String generateGetterName(String field) {
         StringBuilder buffer = new StringBuilder(field);
