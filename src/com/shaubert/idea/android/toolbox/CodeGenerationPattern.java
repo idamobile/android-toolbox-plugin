@@ -7,6 +7,10 @@ public interface CodeGenerationPattern {
 
     public String getName();
 
-    public PsiClass generateOutput(Project project, AndroidManifest androidManifest, AndroidView androidView, String outputClass);
+    public String getSuggestedClassName(String layoutFileName);
+
+    public PsiClass generateOutput(Project project, AndroidManifest androidManifest, AndroidView androidView, String layoutFileName, String outputClass);
+
+    public void setup(Project project);
 
 }

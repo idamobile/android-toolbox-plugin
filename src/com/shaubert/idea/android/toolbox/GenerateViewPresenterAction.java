@@ -18,6 +18,8 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiPackage;
 import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.psi.codeStyle.JavaCodeStyleManager;
+import com.intellij.ui.CheckboxTreeBase;
+import com.intellij.ui.CheckedTreeNode;
 
 
 public class GenerateViewPresenterAction extends AnAction {
@@ -38,31 +40,78 @@ public class GenerateViewPresenterAction extends AnAction {
     private PsiPackage lastSelectedPackage;
 
     public void actionPerformed(AnActionEvent e) {
-        Project project = e.getData(PlatformDataKeys.PROJECT);
+        final Project project = e.getData(PlatformDataKeys.PROJECT);
         try {
             if (project == null) {
                 throw new CancellationException("Unable to retrieve project");
             }
-            VirtualFile layoutFile = getSelectedLayoutFile(e);
+            final VirtualFile layoutFile = getSelectedLayoutFile(e);
             Module module = getModuleOfFile(project, layoutFile);
-            AndroidManifest androidManifest = getAndroidManifest(module);
+            final AndroidManifest androidManifest = getAndroidManifest(module);
             AndroidView androidView = getAndroidViews(layoutFile);
 
-            CodeGenerationPattern pattern = selectCodeGenerationPattern(project, layoutFile);
+            final CodeGenerationPattern pattern = selectCodeGenerationPattern(project, layoutFile);
+            final AndroidView filteredViews = selectViews(project, androidView);
             PsiPackage selectedPackage = selectDestinationPackage(module, androidManifest);
-            PsiDirectory resultDirectory = getPsiDirectoryFromPackage(selectedPackage);
-            String fileName = selectJavaClassName(project, layoutFile);
+            final PsiDirectory resultDirectory = getPsiDirectoryFromPackage(selectedPackage);
+            String fileName = selectJavaClassName(project, layoutFile, pattern);
             throwIfFileAlreadyExists(resultDirectory, fileName);
-            String className = extractClassName(fileName);
+            String className = FileUtil.removeExtension(fileName);
 
-            String outputClassName = selectedPackage.getQualifiedName() + "." + className;
-            PsiClass resultClass = pattern.generateOutput(project, androidManifest, androidView, outputClassName);
-            saveClass(resultDirectory, resultClass);
+            final String outputClassName = selectedPackage.getQualifiedName() + "." + className;
+            pattern.setup(project);
+            ApplicationManager.getApplication().runWriteAction(new Runnable() {
+                @Override
+                public void run() {
+                    PsiClass resultClass = pattern.generateOutput(project, androidManifest, filteredViews,
+                            layoutFile.getName(), outputClassName);
+                    saveClass(resultDirectory, resultClass);
+                }
+            });
         } catch (CancellationException ignored) {
             if (ignored.getMessage() != null && project != null) {
                 Messages.showErrorDialog(project, ignored.getMessage(), "Error");
             }
         }
+    }
+
+    private AndroidView selectViews(Project project, AndroidView androidView) {
+        MultichoiceTreeDialog treeDialog = new MultichoiceTreeDialog(project, "Views To Find", androidView,
+                new CheckboxTreeBase.CheckPolicy(false, false, false, false));
+        if (treeDialog.showAndGet()) {
+            CheckedTreeNode node = treeDialog.getResult();
+            AndroidView result = new AndroidView();
+            buildTree(result, node);
+            return result;
+        } else {
+            throw new CancellationException();
+        }
+    }
+
+    private void buildTree(AndroidView parent, CheckedTreeNode node) {
+        AndroidView current = parent;
+        if (node.isChecked()) {
+            AndroidView view = (AndroidView) node.getUserObject();
+            if (view.getParent() != null) {
+                current = new AndroidView();
+                current.setIdValue(view.getIdValue());
+                current.setTagName(view.getTagName());
+                parent.addSubView(current);
+            }
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            buildTree(current, (CheckedTreeNode) node.getChildAt(i));
+        }
+    }
+
+    private String getOptionNameOfView(AndroidView view) {
+        StringBuilder builder = new StringBuilder();
+        for (AndroidView p = view.getParent(); p != null; p = p.getParent()) {
+            builder.append("  ");
+        }
+        builder.append(view.getIdValue());
+        builder.append(" - ").append(view.getClassName());
+        return builder.toString();
     }
 
     private AndroidManifest getAndroidManifest(Module module) {
@@ -114,18 +163,13 @@ public class GenerateViewPresenterAction extends AnAction {
     private void saveClass(final PsiDirectory resultDirectory, final PsiClass resultClass) {
         if (resultDirectory != null) {
             if (resultClass != null) {
-                ApplicationManager.getApplication().runWriteAction(new Runnable() {
-                    @Override
-                    public void run() {
-                        PsiClass added = (PsiClass) resultDirectory.add(resultClass);
-                        PsiFile psiFile = added.getNavigationElement().getContainingFile();
-                        JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(added.getProject());
-                        styleManager.optimizeImports(psiFile);
-                        CodeStyleManager codeStyleManager = CodeStyleManager.getInstance(added.getProject());
-                        PsiClass formatted = (PsiClass) codeStyleManager.reformat(added);
-                        formatted.navigate(true);
-                    }
-                });
+                PsiClass added = (PsiClass) resultDirectory.add(resultClass);
+                PsiFile psiFile = added.getNavigationElement().getContainingFile();
+                JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(added.getProject());
+                styleManager.optimizeImports(psiFile);
+                CodeStyleManager codeStyleManager = CodeStyleManager.getInstance(added.getProject());
+                PsiClass formatted = (PsiClass) codeStyleManager.reformat(added);
+                formatted.navigate(true);
             }
         }
     }
@@ -152,23 +196,8 @@ public class GenerateViewPresenterAction extends AnAction {
         throw new CancellationException();
     }
 
-    private String extractClassName(String fileName) {
-        int index = fileName.lastIndexOf(".java");
-        if (index > 0) {
-            return fileName.substring(0, index);
-        } else {
-            throw new CancellationException("Bad java file name: " + fileName);
-        }
-    }
-
-    private String selectJavaClassName(Project project, VirtualFile layoutFile) {
-        String layoutFileName = layoutFile.getName();
-        int index = layoutFileName.lastIndexOf(".xml");
-        if (index > 0) {
-            layoutFileName = layoutFileName.substring(0, index);
-        }
-        String className = ClassHelper.formatCamelCaseFromUnderscore(layoutFileName);
-        className = ClassHelper.upperCaseLetter(className, 0);
+    private String selectJavaClassName(Project project, VirtualFile layoutFile, CodeGenerationPattern pattern) {
+        String className = pattern.getSuggestedClassName(layoutFile.getName());
         String fileName = Messages.showInputDialog(project, "Input class name", "Creating File",
                 Messages.getQuestionIcon(), className, null);
         if (fileName == null || fileName.length() == 0) {

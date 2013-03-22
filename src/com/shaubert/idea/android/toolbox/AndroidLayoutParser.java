@@ -12,39 +12,24 @@ import java.io.InputStream;
 
 public class AndroidLayoutParser extends DefaultHandler {
 
-    public enum DuplicateIdPolicy {
-        KEEP,
-        REMOVE;
-    }
-    public static final DuplicateIdPolicy DEFAUL_DUPLICATE_ID_POLICY = DuplicateIdPolicy.KEEP;
-
-    private AndroidView result = new AndroidView();
     private AndroidView currentView;
 
-    private DuplicateIdPolicy duplicateIdPolicy = DEFAUL_DUPLICATE_ID_POLICY;
-
     public AndroidView parse(VirtualFile virtualFile) {
-        return parse(virtualFile, DEFAUL_DUPLICATE_ID_POLICY);
-    }
-
-    public AndroidView parse(VirtualFile virtualFile, DuplicateIdPolicy duplicateIdPolicy) {
         try {
-            return parse(virtualFile.getInputStream(), duplicateIdPolicy);
+            return parse(virtualFile.getInputStream());
         } catch (IOException e) {
             e.printStackTrace();
             return new AndroidView();
         }
     }
 
-    public AndroidView parse(InputStream inputStream, DuplicateIdPolicy duplicateIdPolicy) {
-        this.duplicateIdPolicy = duplicateIdPolicy;
-        this.result = new AndroidView();
-        this.currentView = result;
+    public AndroidView parse(InputStream inputStream) {
+        this.currentView = new AndroidView();
         try {
             SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
             SAXParser saxParser = saxParserFactory.newSAXParser();
             saxParser.parse(inputStream, this);
-            return result;
+            return currentView;
         } catch (Exception e) {
             e.printStackTrace();
             return new AndroidView();
@@ -67,7 +52,7 @@ public class AndroidLayoutParser extends DefaultHandler {
             int idStart = id.indexOf("/");
             if (idStart >= 0) {
                 view.setIdValue(id.substring(idStart + 1));
-                currentView.addSubView(view, duplicateIdPolicy);
+                currentView.addSubView(view);
                 currentView = view;
             }
         }

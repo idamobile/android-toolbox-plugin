@@ -4,6 +4,8 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.util.PropertyUtil;
 
+import java.util.Map;
+
 public class ViewHolderPattern extends AbstractCodeGenerationPattern {
 
     @Override
@@ -12,9 +14,16 @@ public class ViewHolderPattern extends AbstractCodeGenerationPattern {
     }
 
     @Override
-    protected void generateBody(AndroidView androidView, PsiClass psiClass, Project project) {
-        generateFields(androidView, psiClass);
-        generateConstructor(androidView, psiClass);
+    public String getSuggestedClassName(String layoutFileName) {
+        return super.getSuggestedClassName(layoutFileName) + "Holder";
+    }
+
+    @Override
+    protected void generateBody(AndroidView androidView, String layoutFileName, final PsiClass psiClass, Project project) {
+        FieldGenerator fieldGenerator = new FieldGenerator();
+        Map<AndroidView, PsiField> fieldMappings = fieldGenerator.generateFields(
+                androidView, project, new FieldGenerator.AddToPsiClassCallback(psiClass));
+        generateConstructor(androidView, fieldMappings, psiClass);
         generateGetters(psiClass);
     }
 
@@ -24,7 +33,7 @@ public class ViewHolderPattern extends AbstractCodeGenerationPattern {
         }
     }
 
-    private void generateConstructor(AndroidView androidView, PsiClass psiClass) {
+    private void generateConstructor(AndroidView androidView, Map<AndroidView, PsiField> fieldMappings, PsiClass psiClass) {
         PsiElementFactory factory = JavaPsiFacade.getElementFactory(psiClass.getProject());
         PsiMethod constructor = factory.createConstructor();
         PsiClass viewClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_VIEW_CLASS);
@@ -34,55 +43,33 @@ public class ViewHolderPattern extends AbstractCodeGenerationPattern {
         if (constructor.getBody() == null) {
             throw new GenerateViewPresenterAction.CancellationException("Failed to create ViewHolder constructor");
         }
+
         androidView.setTagName(ANDROID_VIEW_CLASS);
         androidView.setIdValue(viewParam.getName());
-        addFindViewStatements(factory, constructor, androidView);
+        addFindViewStatements(factory, constructor, androidView, fieldMappings);
 
         psiClass.add(constructor);
     }
 
     @SuppressWarnings("ConstantConditions")
-    private void addFindViewStatements(PsiElementFactory factory, PsiMethod constructor, AndroidView view) {
-        if (view.getParent() != null) {
-            String viewGroupName = view.getParent().getCamelCaseId();
-            PsiStatement assignmentStatement = getFindViewStatement(factory, constructor, viewGroupName, view);
-            constructor.getBody().add(assignmentStatement);
-        }
-        for (AndroidView child : view.getSubViews()) {
-            addFindViewStatements(factory, constructor, child);
-        }
-    }
+    private void addFindViewStatements(final PsiElementFactory factory, final PsiMethod constructor,
+                                       final AndroidView view, final Map<AndroidView, PsiField> fieldMappings) {
+        FindViewByIdStatementGenerator findViewByIdStatementGenerator = new FindViewByIdStatementGenerator();
+        FindViewByIdStatementGenerator.ClassFieldAssigner fieldAssigner =
+                new FindViewByIdStatementGenerator.ClassFieldAssigner(fieldMappings, view.getIdValue()) {
+                    @Override
+                    protected void onStatementCreated(String statement, PsiField field, AndroidView view) {
+                        PsiStatement assignmentStatement =
+                                factory.createStatementFromText(statement, constructor.getContext());
+                        constructor.getBody().add(assignmentStatement);
+                    }
 
-    private PsiStatement getFindViewStatement(PsiElementFactory factory, PsiMethod constructor,
-                                              String viewGroupName, AndroidView view) {
-        return factory.createStatementFromText(
-                "this." + view.getCamelCaseId() + " = ("
-                        + view.getClassSimpleName() + ") "
-                        + viewGroupName + ".findViewById(R.id." + view.getIdValue() + ");",
-                constructor.getContext());
-    }
-
-    private void generateFields(AndroidView androidView, PsiClass psiClass) {
-        if (androidView.getParent() != null) {
-            PsiField field = createField(psiClass.getProject(), androidView);
-            psiClass.add(field);
-        }
-        for (AndroidView view : androidView.getSubViews()) {
-            generateFields(view, psiClass);
-        }
-    }
-
-    private PsiField createField(Project project, AndroidView view) {
-        PsiClass viewClass = ClassHelper.findClass(project, view.getClassName());
-        PsiElementFactory factory = JavaPsiFacade.getElementFactory(project);
-        PsiField field = factory.createField(view.getCamelCaseId(), factory.createType(viewClass));
-        PsiModifierList modifierList = field.getModifierList();
-        if (modifierList != null) {
-            modifierList.setModifierProperty(PsiModifier.PRIVATE, true);
-        } else {
-            throw new GenerateViewPresenterAction.CancellationException("Failed to create field");
-        }
-        return field;
+                    @Override
+                    public boolean shouldProcessView(AndroidView view) {
+                        return view.getParent() != null;
+                    }
+                };
+        findViewByIdStatementGenerator.createFindViewStatements(view, fieldAssigner);
     }
 
 }

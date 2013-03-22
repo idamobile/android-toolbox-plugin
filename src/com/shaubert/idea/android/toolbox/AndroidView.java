@@ -3,7 +3,7 @@ package com.shaubert.idea.android.toolbox;
 import java.util.ArrayList;
 import java.util.List;
 
-public class AndroidView {
+public class AndroidView implements TreeData {
     private String tagName;
     private String classSimpleName;
     private String className;
@@ -40,14 +40,7 @@ public class AndroidView {
         camelCaseId = ClassHelper.formatCamelCaseFromUnderscore(idValue);
     }
 
-    public void addSubView(AndroidView view, AndroidLayoutParser.DuplicateIdPolicy duplicateIdPolicy) {
-        if (duplicateIdPolicy == AndroidLayoutParser.DuplicateIdPolicy.REMOVE) {
-            for (AndroidView subView : subViews) {
-                if (subView.getIdValue().endsWith(view.getIdValue())) {
-                    return;
-                }
-            }
-        }
+    public void addSubView(AndroidView view) {
         view.setParent(this);
         this.subViews.add(view);
     }
@@ -64,8 +57,22 @@ public class AndroidView {
         return className;
     }
 
-    public List<AndroidView> getSubViews() {
+    @Override
+    public List<AndroidView> getChildNodes() {
         return subViews;
+    }
+
+    public List<AndroidView> getAllChildViews() {
+        List<AndroidView> result = new ArrayList<AndroidView>();
+        collectViews(result);
+        return result;
+    }
+
+    private void collectViews(List<AndroidView> result) {
+        for (AndroidView view : subViews) {
+            result.add(view);
+            view.collectViews(result);
+        }
     }
 
     public AndroidView getParent() {
@@ -75,4 +82,10 @@ public class AndroidView {
     public void setParent(AndroidView parent) {
         this.parent = parent;
     }
+
+    @Override
+    public String getNodeName() {
+        return idValue + " - " +  className;
+    }
+
 }
