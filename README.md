@@ -1,7 +1,7 @@
 Android Toolbox Plugin
 ======================
 
-Android developement speed up plugin for IDEA
+Android development speed up plugin for IDEA
 
 Features:
 * Generate ViewHolder or ViewPresenter from layout xml
@@ -102,7 +102,7 @@ Browse the result code:
             }
         }
         
-For View Presenter Pattert the result code would be:
+For View Presenter Pattern the result code would be:
 
         public class LDirtyCommentPresenter {
             private LinearLayout messageFrame;

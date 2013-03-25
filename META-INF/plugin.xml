@@ -1,17 +1,22 @@
 <idea-plugin version="2">
-    <id>com.yourcompany.unique.plugin.id</id>
-    <name>Plugin display name here</name>
+    <id>com.idamobile.android.toolbox</id>
+    <name>Android Toolbox Plugin</name>
     <version>1.0</version>
-    <vendor email="support@yourcompany.com" url="http://www.yourcompany.com">YourCompany</vendor>
+    <vendor email="as@idamob.ru" url="http://www.idamob.com">iDa Mobile</vendor>
 
     <description><![CDATA[
-      Enter short description for your plugin here.<br>
-      <small>most HTML tags may be used</small>
+      Android Toolbox Plugin for IDEA
+
+      Supported features:
+      <ul>
+        <li>Create ViewHolder/ViewPresenter from layout.xml</li>
+      </ul>
+
+      For more information go to github https://github.com/idamobile/android-toolbox-plugin
       ]]></description>
 
     <change-notes><![CDATA[
-      Add change notes here.<br>
-      <small>most HTML tags may be used</small>
+      ViewHolder/ViewPresenter generation
       ]]>
     </change-notes>
 
