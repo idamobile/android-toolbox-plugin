@@ -10,7 +10,7 @@ Features:
 Generating ViewHolder/ViewPresenter templates
 ---
 
-1. Suppose we have an android layout file (l_dirty_comment.xml)
+Suppose we have an android layout file (l_dirty_comment.xml)
 
         <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
             android:id="@+id/message_frame"
@@ -50,27 +50,27 @@ Generating ViewHolder/ViewPresenter templates
             </LinearLayout>
         </LinearLayout>
  
-2. Select Android layout file in res/layout*/ folder. Open context menu for it and select "Generate View Presenter…" option:
+Select Android layout file in res/layout*/ folder. Open context menu for it and select "Generate View Presenterâ€¦" option:
 
-![Context menu](../screenshots/context_menu.png?raw=true)
+![Context menu](../master/screenshots/context_menu.png?raw=true)
 
-3. Select generation pattern:
+Select generation pattern:
 
-![Pattert selection dialog](../screenshots/select_pattern.png?raw=true)
+![Pattert selection dialog](../master/screenshots/select_pattern.png?raw=true)
 
-4. Choose views:
+Choose views:
 
-![View selection dialog](../screenshots/view_selection.png?raw=true)
+![View selection dialog](../master/screenshots/view_selection.png?raw=true)
 
-5. Select generated class' package:
+Select generated class' package:
 
-![Package selection dialog](../screenshots/select_package.png?raw=true)
+![Package selection dialog](../master/screenshots/select_package.png?raw=true)
 
-6. Modify generated class name:
+Modify generated class name:
 
-![Class name Input dialog](../screenshots/select_class_name.png?raw=true)
+![Class name Input dialog](../master/screenshots/select_class_name.png?raw=true)
 
-7. Browse the result code:
+Browse the result code:
 
         public class DirtyCommentHolder {
             private LinearLayout messageFrame;
@@ -145,8 +145,8 @@ For View Presenter Pattert the result code would be:
             }
         }        
         
-  Licence
-  ==
+Licence
+=======
   
              Copyright 2013 iDa Mobile.
         
