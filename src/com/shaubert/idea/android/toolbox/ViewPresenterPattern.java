@@ -32,19 +32,18 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
     }
 
     @Override
-    protected void generateBody(AndroidView androidView, String layoutFileName, final PsiClass psiClass, Project project) {
+    protected void generateBody(AndroidView androidView, String layoutFileName, boolean useButterKnife, final PsiClass psiClass, Project project) {
         FieldGenerator fieldGenerator = new FieldGenerator();
         Map<AndroidView, PsiField> fieldMappings = fieldGenerator.generateFields(
-                androidView, project, new FieldGenerator.AddToPsiClassCallback(psiClass));
+                androidView, project, useButterKnife, new FieldGenerator.AddToPsiClassCallback(psiClass));
         PsiField mainViewField = createMainViewField(psiClass);
 
         PsiField dataField = null;
         if (dataClass != null) {
-            dataField = createDataField(dataClass);
-            psiClass.add(dataField);
+            dataField = createDataField(psiClass);
         }
 
-        generateConstructor(androidView, layoutFileName, fieldMappings, mainViewField, psiClass);
+        generateConstructor(androidView, layoutFileName, useButterKnife, fieldMappings, mainViewField, psiClass);
         psiClass.add(PropertyUtil.generateGetterPrototype(mainViewField));
 
         if (dataField != null) {
@@ -77,10 +76,10 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
         PsiMethod refreshMethod = factory.createMethod("refresh", PsiType.VOID);
 
         PsiStatement statement = factory.createStatementFromText(
-                "if (this." + dataField.getName() + " != null) { "
-                        + "this." + mainViewField.getName() + ".setVisibility(View.VISIBLE);"
+                "if (" + dataField.getName() + " != null) { "
+                        +  mainViewField.getName() + ".setVisibility(View.VISIBLE);"
                         + "} else {"
-                        + "this." + mainViewField.getName() + ".setVisibility(View.GONE);"
+                        +  mainViewField.getName() + ".setVisibility(View.GONE);"
                         + "}",
                 refreshMethod.getContext());
         refreshMethod.getBody().add(statement);
@@ -94,17 +93,14 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
         PsiParameter parameter = factory.createParameter("data", factory.createType(dataClass));
         swapMethod.getParameterList().add(parameter);
 
-        PsiStatement statement = factory.createStatementFromText(
-                "if (this." + dataField.getName() + " != " + parameter.getName() + ") { "
-                        + "this." + dataField.getName() + " = " + parameter.getName() + ";"
-                        +  refreshMethod.getName() + "(); }",
-                swapMethod.getContext());
-        swapMethod.getBody().add(statement);
+        swapMethod.getBody().add(factory.createStatementFromText(
+                "this." + dataField.getName() + " = " + parameter.getName() + ";", swapMethod.getContext()));
+        swapMethod.getBody().add(factory.createStatementFromText(refreshMethod.getName() + "();", swapMethod.getContext()));
         psiClass.add(swapMethod);
     }
 
     @SuppressWarnings("ConstantConditions")
-    private void generateConstructor(AndroidView androidView, String layoutFileName, Map<AndroidView, PsiField> fieldMappings,
+    private void generateConstructor(AndroidView androidView, String layoutFileName, boolean useButterKnife, Map<AndroidView, PsiField> fieldMappings,
                                      PsiField mainViewField, PsiClass psiClass) {
         PsiElementFactory factory = JavaPsiFacade.getElementFactory(psiClass.getProject());
         PsiMethod constructor = factory.createConstructor();
@@ -116,7 +112,7 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
         constructor.getParameterList().add(viewParentParam);
 
         if (constructor.getBody() == null) {
-            throw new GenerateViewPresenterAction.CancellationException("Failed to create ViewHolder constructor");
+            throw new GenerateViewPresenterAction.CancellationException("Failed to create ViewPresenter constructor");
         }
 
         PsiClass layoutInflaterClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_LAYOUT_INFLATER_CLASS);
@@ -127,7 +123,7 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
         constructor.getBody().add(inflaterDeclaration);
 
 
-        PsiStatement inflateStatement = factory.createStatementFromText("this." + mainViewField.getName()
+        PsiStatement inflateStatement = factory.createStatementFromText(mainViewField.getName()
                 + " = inflater.inflate(R.layout." + FileUtil.removeExtension(layoutFileName)
                     + ", " + viewParentParam.getName()
                     + ", false);", constructor.getContext());
@@ -135,7 +131,13 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
 
         androidView.setTagName(ANDROID_VIEW_CLASS);
         androidView.setIdValue(mainViewField.getName());
-        addFindViewStatements(factory, constructor, androidView, fieldMappings);
+        if (useButterKnife) {
+            PsiStatement injectStatement =
+                    factory.createStatementFromText("Views.inject(this, " + mainViewField.getName() + ");", constructor.getContext());
+            constructor.getBody().add(injectStatement);
+        } else {
+            addFindViewStatements(factory, constructor, androidView, fieldMappings);
+        }
 
         psiClass.add(constructor);
     }

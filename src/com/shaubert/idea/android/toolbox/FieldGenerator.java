@@ -28,7 +28,7 @@ public class FieldGenerator {
     }
 
     public Map<AndroidView, PsiField> generateFields(AndroidView androidView, Project project,
-                                                      @Nullable CreateFieldCallback createFieldCallback)
+                                                     boolean useButterKnife, @Nullable CreateFieldCallback createFieldCallback)
             throws GenerateViewPresenterAction.CancellationException {
         List<AndroidView> views = androidView.getAllChildViews();
         Map<String, Integer> idsCount = new HashMap<String, Integer>();
@@ -42,6 +42,9 @@ public class FieldGenerator {
             }
             idsCount.put(view.getIdValue(), count);
             PsiField field = createField(project, view, count);
+            if (useButterKnife) {
+                addButterKnifeAnnotation(field, view);
+            }
             fieldMappings.put(view, field);
             if (createFieldCallback != null) {
                 createFieldCallback.onFieldCreated(field);
@@ -69,6 +72,18 @@ public class FieldGenerator {
             throw new GenerateViewPresenterAction.CancellationException("Failed to create field");
         }
         return field;
+    }
+
+    public void addButterKnifeAnnotation(PsiField field, AndroidView view) {
+        PsiElementFactory factory = JavaPsiFacade.getElementFactory(field.getProject());
+        PsiModifierList modifierList = field.getModifierList();
+        if (modifierList != null) {
+            PsiAnnotation annotation = modifierList.addAnnotation(AbstractCodeGenerationPattern.BUTTERKNIFE_INJECT_VIEW);
+            annotation.setDeclaredAttributeValue("value",
+                    factory.createExpressionFromText("R.id." + view.getIdValue(), annotation));
+        } else {
+            throw new GenerateViewPresenterAction.CancellationException("Failed to create field");
+        }
     }
 
 }

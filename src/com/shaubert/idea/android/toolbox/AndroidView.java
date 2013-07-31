@@ -26,7 +26,11 @@ public class AndroidView implements TreeData {
             className = tagName;
             classSimpleName = ClassHelper.getClassNameFromFullQualified(className);
         } else {
-            className = "android.widget." + tagName;
+            if (tagName.equalsIgnoreCase("view")) {
+                className = "android.view.View";
+            } else {
+                className = "android.widget." + tagName;
+            }
             classSimpleName = tagName;
         }
     }

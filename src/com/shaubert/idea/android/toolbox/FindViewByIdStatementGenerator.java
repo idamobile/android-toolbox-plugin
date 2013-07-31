@@ -24,7 +24,7 @@ public class FindViewByIdStatementGenerator {
         @Override
         public void onStatementCreated(String statement, AndroidView view) {
             PsiField psiField = fieldMappings.get(view);
-            String resultStatement = "this." + psiField.getName() + " = " + statement;
+            String resultStatement = psiField.getName() + " = " + statement;
             onStatementCreated(resultStatement, psiField, view);
         }
 
@@ -62,7 +62,7 @@ public class FindViewByIdStatementGenerator {
     }
 
     public String createFindViewStatement(String viewGroupName, AndroidView view) {
-        return "(" + view.getClassSimpleName() + ") "
+        return ("view".equalsIgnoreCase(view.getClassSimpleName()) ? "" : "(" + view.getClassSimpleName() + ") ")
                 + viewGroupName + ".findViewById(R.id." + view.getIdValue() + ");";
     }
 

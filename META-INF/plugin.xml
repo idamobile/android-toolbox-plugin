@@ -1,15 +1,16 @@
 <idea-plugin version="2">
     <id>com.idamobile.android.toolbox</id>
     <name>Android Toolbox Plugin</name>
-    <version>1.0</version>
+    <version>1.1</version>
     <vendor email="as@idamob.ru" url="http://www.idamob.com">iDa Mobile</vendor>
 
     <description><![CDATA[
-      Android Toolbox Plugin for IDEA
-
+      Android Toolbox Plugin for IDEA.</br>
+      </br>
       Supported features:
       <ul>
         <li>Create ViewHolder/ViewPresenter from layout.xml</li>
+        <li>Generates ButterKnife annotations, if ButterKnife present in project dependencies</li>
       </ul>
 
       For more information go to github https://github.com/idamobile/android-toolbox-plugin

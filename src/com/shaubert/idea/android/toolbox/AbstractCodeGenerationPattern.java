@@ -3,6 +3,7 @@ package com.shaubert.idea.android.toolbox;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.JavaCodeStyleManager;
+import com.intellij.psi.search.EverythingGlobalScope;
 
 public abstract class AbstractCodeGenerationPattern implements CodeGenerationPattern {
 
@@ -10,6 +11,9 @@ public abstract class AbstractCodeGenerationPattern implements CodeGenerationPat
     public static final String ANDROID_VIEW_GROUP_CLASS = "android.view.ViewGroup";
     public static final String ANDROID_LAYOUT_INFLATER_CLASS = "android.view.LayoutInflater";
     public static final String ANDROID_CONTEXT_CLASS = "android.content.Context";
+
+    public static final String BUTTERKNIFE_INJECT_VIEW = "butterknife.InjectView";
+    public static final String BUTTERKNIFE_VIEWS = "butterknife.Views";
 
     @Override
     public String getSuggestedClassName(String layoutFileName) {
@@ -30,19 +34,31 @@ public abstract class AbstractCodeGenerationPattern implements CodeGenerationPat
     protected PsiClass generateOutput(AndroidView androidView, String layoutFileName, AndroidManifest androidManifest, String canonicalPath, Project project) {
         PsiElementFactory factory = JavaPsiFacade.getElementFactory(project);
         PsiClass psiClass = factory.createClass(ClassHelper.getClassNameFromFullQualified(canonicalPath));
-        generateBody(androidView, layoutFileName, psiClass, project);
+        JavaPsiFacade psiFacade = JavaPsiFacade.getInstance(project);
+        PsiClass viewsClass = psiFacade.findClass(BUTTERKNIFE_VIEWS, new EverythingGlobalScope(project));
+        boolean hasButterKnife = viewsClass != null;
+        if (hasButterKnife) {
+            addImport(psiClass, ClassHelper.findClass(project, BUTTERKNIFE_INJECT_VIEW));
+            addImport(psiClass, viewsClass);
+        }
+        generateBody(androidView, layoutFileName, hasButterKnife, psiClass, project);
         addRClassImport(psiClass, androidManifest);
+
         return psiClass;
     }
 
     private void addRClassImport(PsiClass psiClass, AndroidManifest androidManifest) {
         PsiClass rClass = ClassHelper.findClass(psiClass.getProject(), androidManifest.getPackageName() + ".R");
-        PsiFile containingFile = psiClass.getNavigationElement().getContainingFile();
-        JavaCodeStyleManager manager = JavaCodeStyleManager.getInstance(psiClass.getProject());
-        manager.addImport((PsiJavaFile) containingFile, rClass);
+        addImport(psiClass, rClass);
     }
 
-    protected abstract void generateBody(AndroidView androidView, String layoutFileName, PsiClass psiClass, Project project);
+    protected void addImport(PsiClass psiClass, PsiClass importClass) {
+        PsiFile containingFile = psiClass.getNavigationElement().getContainingFile();
+        JavaCodeStyleManager manager = JavaCodeStyleManager.getInstance(psiClass.getProject());
+        manager.addImport((PsiJavaFile) containingFile, importClass);
+    }
+
+    protected abstract void generateBody(AndroidView androidView, String layoutFileName, boolean useButterKnife, PsiClass psiClass, Project project);
 
     protected String generateGetterName(String field) {
         StringBuilder buffer = new StringBuilder(field);

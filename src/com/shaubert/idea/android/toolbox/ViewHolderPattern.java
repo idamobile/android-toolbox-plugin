@@ -19,11 +19,11 @@ public class ViewHolderPattern extends AbstractCodeGenerationPattern {
     }
 
     @Override
-    protected void generateBody(AndroidView androidView, String layoutFileName, final PsiClass psiClass, Project project) {
+    protected void generateBody(AndroidView androidView, String layoutFileName, boolean useButterKnife, final PsiClass psiClass, Project project) {
         FieldGenerator fieldGenerator = new FieldGenerator();
         Map<AndroidView, PsiField> fieldMappings = fieldGenerator.generateFields(
-                androidView, project, new FieldGenerator.AddToPsiClassCallback(psiClass));
-        generateConstructor(androidView, fieldMappings, psiClass);
+                androidView, project, useButterKnife, new FieldGenerator.AddToPsiClassCallback(psiClass));
+        generateConstructor(androidView, useButterKnife, fieldMappings, psiClass);
         generateGetters(psiClass);
     }
 
@@ -33,7 +33,7 @@ public class ViewHolderPattern extends AbstractCodeGenerationPattern {
         }
     }
 
-    private void generateConstructor(AndroidView androidView, Map<AndroidView, PsiField> fieldMappings, PsiClass psiClass) {
+    private void generateConstructor(AndroidView androidView, boolean useButterKnife, Map<AndroidView, PsiField> fieldMappings, PsiClass psiClass) {
         PsiElementFactory factory = JavaPsiFacade.getElementFactory(psiClass.getProject());
         PsiMethod constructor = factory.createConstructor();
         PsiClass viewClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_VIEW_CLASS);
@@ -46,7 +46,13 @@ public class ViewHolderPattern extends AbstractCodeGenerationPattern {
 
         androidView.setTagName(ANDROID_VIEW_CLASS);
         androidView.setIdValue(viewParam.getName());
-        addFindViewStatements(factory, constructor, androidView, fieldMappings);
+        if (useButterKnife) {
+            PsiStatement injectStatement =
+                    factory.createStatementFromText("Views.inject(this, " + viewParam.getName() + ");", constructor.getContext());
+            constructor.getBody().add(injectStatement);
+        } else {
+            addFindViewStatements(factory, constructor, androidView, fieldMappings);
+        }
 
         psiClass.add(constructor);
     }
