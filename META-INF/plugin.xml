@@ -10,7 +10,7 @@
       Supported features:
       <ul>
         <li>Create ViewHolder/ViewPresenter from layout.xml</li>
-        <li>Generates ButterKnife annotations, if ButterKnife present in project dependencies</li>
+        <li>Generates ButterKnife annotations, if ButterKnife presents in project dependencies</li>
       </ul>
 
       For more information go to github https://github.com/idamobile/android-toolbox-plugin

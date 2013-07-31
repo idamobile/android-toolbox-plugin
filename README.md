@@ -1,7 +1,7 @@
 Android Toolbox Plugin
 ======================
 
-Android development speed up plugin for IDEA
+Android development speed up [plugin for IDEA](http://plugins.jetbrains.com/plugin/7200)
 
 Features:
 * Generate ViewHolder or ViewPresenter from layout xml
@@ -79,10 +79,10 @@ Browse the result code:
             private PatchedTextView summary;
         
             public DirtyCommentHolder(View view) {
-                this.messageFrame = (LinearLayout) view.findViewById(R.id.message_frame);
-                this.message = (PatchedTextView) messageFrame.findViewById(R.id.message);
-                this.image = (FixedSizeImageView) messageFrame.findViewById(R.id.image);
-                this.summary = (PatchedTextView) messageFrame.findViewById(R.id.summary);
+                messageFrame = (LinearLayout) view.findViewById(R.id.message_frame);
+                message = (PatchedTextView) messageFrame.findViewById(R.id.message);
+                image = (FixedSizeImageView) messageFrame.findViewById(R.id.image);
+                summary = (PatchedTextView) messageFrame.findViewById(R.id.summary);
             }
 
             public LinearLayout getMessageFrame() {
@@ -114,11 +114,11 @@ For View Presenter Pattern the result code would be:
         
             public LDirtyCommentPresenter(Context context, ViewGroup parent) {
                 LayoutInflater inflater = LayoutInflater.from(context);
-                this.view = inflater.inflate(R.layout.l_dirty_comment, parent, false);
-                this.messageFrame = (LinearLayout) view.findViewById(R.id.message_frame);
-                this.message = (PatchedTextView) messageFrame.findViewById(R.id.message);
-                this.image = (FixedSizeImageView) messageFrame.findViewById(R.id.image);
-                this.summary = (PatchedTextView) messageFrame.findViewById(R.id.summary);
+                view = inflater.inflate(R.layout.l_dirty_comment, parent, false);
+                messageFrame = (LinearLayout) view.findViewById(R.id.message_frame);
+                message = (PatchedTextView) messageFrame.findViewById(R.id.message);
+                image = (FixedSizeImageView) messageFrame.findViewById(R.id.image);
+                summary = (PatchedTextView) messageFrame.findViewById(R.id.summary);
             }
         
             public View getView() {
@@ -130,20 +130,39 @@ For View Presenter Pattern the result code would be:
             }
         
             public void refresh() {
-                if (this.data != null) {
-                    this.view.setVisibility(View.VISIBLE);
+                if (data != null) {
+                    view.setVisibility(View.VISIBLE);
                 } else {
-                    this.view.setVisibility(View.GONE);
+                    view.setVisibility(View.GONE);
                 }
             }
         
             public void swapData(DirtyBlog data) {
-                if (this.data != data) {
-                    this.data = data;
-                    refresh();
-                }
+                this.data = data;
+                refresh();
             }
         }        
+        
+or fields initialization would be like this, if you use [ButterKnife](https://github.com/JakeWharton/butterknife) in your project:
+
+        public class LDirtyCommentPresenter {
+            @InjectView(R.id.message_frame)
+            private LinearLayout messageFrame;
+            @InjectView(R.id.message)
+            private PatchedTextView message;
+            @InjectView(R.id.image)
+            private FixedSizeImageView image;
+            @InjectView(R.id.summary)
+            private PatchedTextView summary;
+            private View view;
+            private DirtyBlog data;
+        
+            public LDirtyCommentPresenter(Context context, ViewGroup parent) {
+                LayoutInflater inflater = LayoutInflater.from(context);
+                this.view = inflater.inflate(R.layout.l_dirty_comment, parent, false);
+                Views.inject(this, view);
+            }        
+        
         
 Licence
 =======
