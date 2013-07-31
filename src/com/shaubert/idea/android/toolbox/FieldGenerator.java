@@ -78,6 +78,7 @@ public class FieldGenerator {
         PsiElementFactory factory = JavaPsiFacade.getElementFactory(field.getProject());
         PsiModifierList modifierList = field.getModifierList();
         if (modifierList != null) {
+            modifierList.setModifierProperty(PsiModifier.PRIVATE, false);
             PsiAnnotation annotation = modifierList.addAnnotation(AbstractCodeGenerationPattern.BUTTERKNIFE_INJECT_VIEW);
             annotation.setDeclaredAttributeValue("value",
                     factory.createExpressionFromText("R.id." + view.getIdValue(), annotation));
