@@ -23,11 +23,15 @@ public class AndroidView implements TreeData {
     public void setTagName(String tagName) {
         this.tagName = tagName.trim();
         if (tagName.contains(".")) {
-            className = tagName;
-            classSimpleName = ClassHelper.getClassNameFromFullQualified(className);
+            className = tagName.replaceAll("\\$", ".");
+            classSimpleName = ClassHelper.getClassNameFromFullQualified(tagName).replaceAll("\\$", ".");
         } else {
-            if (tagName.equalsIgnoreCase("view")) {
-                className = "android.view.View";
+            if (tagName.equalsIgnoreCase("View")
+                    || tagName.equals("ViewStub")
+                    || tagName.equals("TextureView")
+                    || tagName.equals("Surface")
+                    ) {
+                className = "android.view." + tagName;
             } else {
                 className = "android.widget." + tagName;
             }
