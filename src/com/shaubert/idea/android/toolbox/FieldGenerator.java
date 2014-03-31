@@ -28,7 +28,7 @@ public class FieldGenerator {
     }
 
     public Map<AndroidView, PsiField> generateFields(AndroidView androidView, Project project,
-                                                     boolean useButterKnife, @Nullable CreateFieldCallback createFieldCallback)
+                                                     ButterKnife butterKnife, @Nullable CreateFieldCallback createFieldCallback)
             throws GenerateViewPresenterAction.CancellationException {
         List<AndroidView> views = androidView.getAllChildViews();
         Map<String, Integer> idsCount = new HashMap<String, Integer>();
@@ -42,8 +42,8 @@ public class FieldGenerator {
             }
             idsCount.put(view.getIdValue(), count);
             PsiField field = createField(project, view, count);
-            if (useButterKnife) {
-                addButterKnifeAnnotation(field, view);
+            if (butterKnife != null) {
+                addButterKnifeAnnotation(field, view, butterKnife);
             }
             fieldMappings.put(view, field);
             if (createFieldCallback != null) {
@@ -74,12 +74,12 @@ public class FieldGenerator {
         return field;
     }
 
-    public void addButterKnifeAnnotation(PsiField field, AndroidView view) {
+    public void addButterKnifeAnnotation(PsiField field, AndroidView view, ButterKnife butterKnife) {
         PsiElementFactory factory = JavaPsiFacade.getElementFactory(field.getProject());
         PsiModifierList modifierList = field.getModifierList();
         if (modifierList != null) {
             modifierList.setModifierProperty(PsiModifier.PRIVATE, false);
-            PsiAnnotation annotation = modifierList.addAnnotation(AbstractCodeGenerationPattern.BUTTERKNIFE_INJECT_VIEW);
+            PsiAnnotation annotation = modifierList.addAnnotation(butterKnife.getInjectViewClass().getQualifiedName());
             annotation.setDeclaredAttributeValue("value",
                     factory.createExpressionFromText("R.id." + view.getIdValue(), annotation));
         } else {

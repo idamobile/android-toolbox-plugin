@@ -3,7 +3,6 @@ package com.shaubert.idea.android.toolbox;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.JavaCodeStyleManager;
-import com.intellij.psi.search.EverythingGlobalScope;
 
 public abstract class AbstractCodeGenerationPattern implements CodeGenerationPattern {
 
@@ -11,9 +10,6 @@ public abstract class AbstractCodeGenerationPattern implements CodeGenerationPat
     public static final String ANDROID_VIEW_GROUP_CLASS = "android.view.ViewGroup";
     public static final String ANDROID_LAYOUT_INFLATER_CLASS = "android.view.LayoutInflater";
     public static final String ANDROID_CONTEXT_CLASS = "android.content.Context";
-
-    public static final String BUTTERKNIFE_INJECT_VIEW = "butterknife.InjectView";
-    public static final String BUTTERKNIFE_VIEWS = "butterknife.Views";
 
     @Override
     public String getSuggestedClassName(String layoutFileName) {
@@ -34,14 +30,12 @@ public abstract class AbstractCodeGenerationPattern implements CodeGenerationPat
     protected PsiClass generateOutput(AndroidView androidView, String layoutFileName, AndroidManifest androidManifest, String canonicalPath, Project project) {
         PsiElementFactory factory = JavaPsiFacade.getElementFactory(project);
         PsiClass psiClass = factory.createClass(ClassHelper.getClassNameFromFullQualified(canonicalPath));
-        JavaPsiFacade psiFacade = JavaPsiFacade.getInstance(project);
-        PsiClass viewsClass = psiFacade.findClass(BUTTERKNIFE_VIEWS, new EverythingGlobalScope(project));
-        boolean hasButterKnife = viewsClass != null;
-        if (hasButterKnife) {
-            addImport(psiClass, ClassHelper.findClass(project, BUTTERKNIFE_INJECT_VIEW));
-            addImport(psiClass, viewsClass);
+        ButterKnife butterKnife = ButterKnife.find(project);
+        if (butterKnife != null) {
+            addImport(psiClass, butterKnife.getInjectViewClass());
+            addImport(psiClass, butterKnife.getInjectorPsiClass());
         }
-        generateBody(androidView, layoutFileName, hasButterKnife, psiClass, project);
+        generateBody(androidView, layoutFileName, butterKnife, psiClass, project);
         addRClassImport(psiClass, androidManifest);
 
         return psiClass;
@@ -58,7 +52,7 @@ public abstract class AbstractCodeGenerationPattern implements CodeGenerationPat
         manager.addImport((PsiJavaFile) containingFile, importClass);
     }
 
-    protected abstract void generateBody(AndroidView androidView, String layoutFileName, boolean useButterKnife, PsiClass psiClass, Project project);
+    protected abstract void generateBody(AndroidView androidView, String layoutFileName, ButterKnife butterKnife, PsiClass psiClass, Project project);
 
     protected String generateGetterName(String field) {
         StringBuilder buffer = new StringBuilder(field);

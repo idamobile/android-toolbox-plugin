@@ -32,10 +32,10 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
     }
 
     @Override
-    protected void generateBody(AndroidView androidView, String layoutFileName, boolean useButterKnife, final PsiClass psiClass, Project project) {
+    protected void generateBody(AndroidView androidView, String layoutFileName, ButterKnife butterKnife, final PsiClass psiClass, Project project) {
         FieldGenerator fieldGenerator = new FieldGenerator();
         Map<AndroidView, PsiField> fieldMappings = fieldGenerator.generateFields(
-                androidView, project, useButterKnife, new FieldGenerator.AddToPsiClassCallback(psiClass));
+                androidView, project, butterKnife, new FieldGenerator.AddToPsiClassCallback(psiClass));
         PsiField mainViewField = createMainViewField(psiClass);
 
         PsiField dataField = null;
@@ -43,7 +43,7 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
             dataField = createDataField(psiClass);
         }
 
-        generateConstructor(androidView, layoutFileName, useButterKnife, fieldMappings, mainViewField, psiClass);
+        generateConstructor(androidView, layoutFileName, butterKnife, fieldMappings, mainViewField, psiClass);
         psiClass.add(PropertyUtil.generateGetterPrototype(mainViewField));
 
         if (dataField != null) {
@@ -100,7 +100,7 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
     }
 
     @SuppressWarnings("ConstantConditions")
-    private void generateConstructor(AndroidView androidView, String layoutFileName, boolean useButterKnife, Map<AndroidView, PsiField> fieldMappings,
+    private void generateConstructor(AndroidView androidView, String layoutFileName, ButterKnife butterKnife, Map<AndroidView, PsiField> fieldMappings,
                                      PsiField mainViewField, PsiClass psiClass) {
         PsiElementFactory factory = JavaPsiFacade.getElementFactory(psiClass.getProject());
         PsiMethod constructor = factory.createConstructor();
@@ -131,9 +131,10 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
 
         androidView.setTagName(ANDROID_VIEW_CLASS);
         androidView.setIdValue(mainViewField.getName());
-        if (useButterKnife) {
+        if (butterKnife != null) {
+            String injectorClassName = butterKnife.getInjectorPsiClass().getName();
             PsiStatement injectStatement =
-                    factory.createStatementFromText("Views.inject(this, " + mainViewField.getName() + ");", constructor.getContext());
+                    factory.createStatementFromText(injectorClassName + ".inject(this, " + mainViewField.getName() + ");", constructor.getContext());
             constructor.getBody().add(injectStatement);
         } else {
             addFindViewStatements(factory, constructor, androidView, fieldMappings);
