@@ -1,7 +1,7 @@
 <idea-plugin version="2">
     <id>com.idamobile.android.toolbox</id>
     <name>Android Toolbox Plugin</name>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
     <vendor email="as@idamob.ru" url="http://www.idamob.com">iDa Mobile</vendor>
 
     <description><![CDATA[
