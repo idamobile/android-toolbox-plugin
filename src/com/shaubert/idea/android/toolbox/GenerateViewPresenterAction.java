@@ -6,6 +6,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.ModuleRootManager;
@@ -60,12 +61,17 @@ public class GenerateViewPresenterAction extends AnAction {
 
             final String outputClassName = selectedPackage.getQualifiedName() + "." + className;
             pattern.setup(project);
-            ApplicationManager.getApplication().runWriteAction(new Runnable() {
+            new WriteCommandAction.Simple(project) {
                 @Override
-                public void run() {
+                protected void run() throws Throwable {
                     PsiClass resultClass = pattern.generateOutput(project, androidManifest, filteredViews,
                             layoutFile.getName(), outputClassName);
                     saveClass(resultDirectory, resultClass);
+                }
+            }.execute();
+            ApplicationManager.getApplication().runWriteAction(new Runnable() {
+                @Override
+                public void run() {
                 }
             });
         } catch (CancellationException ignored) {
