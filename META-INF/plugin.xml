@@ -17,7 +17,8 @@
       ]]></description>
 
     <change-notes><![CDATA[
-      ViewHolder/ViewPresenter generation
+      Fixed issue with missing AndroidManifest (for most cases).
+      Fixed issue with generated getters for shadow class.
       ]]>
     </change-notes>
 
