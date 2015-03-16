@@ -48,7 +48,7 @@ public class GenerateViewPresenterAction extends AnAction {
             }
             final VirtualFile layoutFile = getSelectedLayoutFile(e);
             Module module = getModuleOfFile(project, layoutFile);
-            final AndroidManifest androidManifest = getAndroidManifest(module);
+            final AndroidManifest androidManifest = getAndroidManifest(module, layoutFile);
             AndroidView androidView = getAndroidViews(layoutFile);
 
             final CodeGenerationPattern pattern = selectCodeGenerationPattern(project, layoutFile);
@@ -120,8 +120,8 @@ public class GenerateViewPresenterAction extends AnAction {
         return builder.toString();
     }
 
-    private AndroidManifest getAndroidManifest(Module module) {
-        VirtualFile manifestFile = getManifestFile(module);
+    private AndroidManifest getAndroidManifest(Module module, VirtualFile layoutFile) {
+        VirtualFile manifestFile = getManifestFile(module, layoutFile);
         AndroidManifest androidManifest = new AndroidManifestParser().parse(manifestFile);
         if (androidManifest == null) {
             throw new CancellationException("Failed to read AndroidManifest.xml");
@@ -129,19 +129,35 @@ public class GenerateViewPresenterAction extends AnAction {
         return androidManifest;
     }
 
-    private VirtualFile getManifestFile(Module module) {
+    private VirtualFile getManifestFile(Module module, VirtualFile layoutFile) {
         ModuleRootManager moduleRootManager = ModuleRootManager.getInstance(module);
         VirtualFile[] contentRoots = moduleRootManager.getContentRoots();
-        for (VirtualFile contentRoot : contentRoots) {
-            if (contentRoot.isDirectory()) {
-                for (VirtualFile child : contentRoot.getChildren()) {
-                    if (!child.isDirectory() && "AndroidManifest.xml".equals(child.getName())) {
-                        return child;
-                    }
-                }
+        VirtualFile result = lookupForManifest(layoutFile.getParent().getParent(), contentRoots);
+        if (result == null) {
+            throw new CancellationException("AndroidManifest.xml not found");
+        }
+        return result;
+    }
+
+    private VirtualFile lookupForManifest(VirtualFile dir, VirtualFile[] topDirs) {
+        for (VirtualFile file : dir.getChildren()) {
+            if (!file.isDirectory() && "AndroidManifest.xml".equals(file.getName())) {
+                return file;
             }
         }
-        throw new CancellationException("AndroidManifest.xml not found");
+
+        for (VirtualFile topDir : topDirs) {
+            if (topDir.equals(dir)) {
+                return null;
+            }
+        }
+
+        VirtualFile parent = dir.getParent();
+        if (!dir.isDirectory()) {
+            return null;
+        }
+
+        return lookupForManifest(parent, topDirs);
     }
 
     private AndroidView getAndroidViews(VirtualFile layoutFile) {
