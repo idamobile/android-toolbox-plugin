@@ -4,6 +4,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.util.PropertyUtil;
 
+import java.util.Collection;
 import java.util.Map;
 
 public class ViewHolderPattern extends AbstractCodeGenerationPattern {
@@ -24,12 +25,15 @@ public class ViewHolderPattern extends AbstractCodeGenerationPattern {
         Map<AndroidView, PsiField> fieldMappings = fieldGenerator.generateFields(
                 androidView, project, butterKnife, new FieldGenerator.AddToPsiClassCallback(psiClass));
         generateConstructor(androidView, butterKnife, fieldMappings, psiClass);
-        generateGetters(psiClass);
+        generateGetters(psiClass, fieldMappings.values());
     }
 
-    private void generateGetters(PsiClass psiClass) {
-        for (PsiField psiField : psiClass.getAllFields()) {
-            psiClass.add(PropertyUtil.generateGetterPrototype(psiField));
+    private void generateGetters(PsiClass psiClass, Collection<PsiField> psiFields) {
+        for (PsiField psiField : psiFields) {
+            PsiMethod method = PropertyUtil.generateGetterPrototype(psiField);
+            if (method != null) {
+                psiClass.add(method);
+            }
         }
     }
 
