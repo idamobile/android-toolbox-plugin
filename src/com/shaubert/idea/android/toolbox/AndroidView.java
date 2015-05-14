@@ -30,6 +30,7 @@ public class AndroidView implements TreeData {
                     || tagName.equals("ViewStub")
                     || tagName.equals("TextureView")
                     || tagName.equals("Surface")
+                    || tagName.equals("SurfaceView")
                     ) {
                 className = "android.view." + tagName;
             } else {

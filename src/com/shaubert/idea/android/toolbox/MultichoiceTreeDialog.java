@@ -12,7 +12,7 @@ import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 
-public final class MultichoiceTreeDialog extends DialogWrapper{
+public final class MultichoiceTreeDialog extends DialogWrapper {
 
     private Tree myTree;
     private TreeData treeData;

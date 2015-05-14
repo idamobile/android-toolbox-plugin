@@ -9,6 +9,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.JavaProjectRootsUtil;
 import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.ui.Messages;
@@ -21,6 +22,9 @@ import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.psi.codeStyle.JavaCodeStyleManager;
 import com.intellij.ui.CheckboxTreeBase;
 import com.intellij.ui.CheckedTreeNode;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class GenerateViewPresenterAction extends AnAction {
@@ -140,6 +144,7 @@ public class GenerateViewPresenterAction extends AnAction {
     }
 
     private VirtualFile lookupForManifest(VirtualFile dir, VirtualFile[] topDirs) {
+        //noinspection UnsafeVfsRecursion
         for (VirtualFile file : dir.getChildren()) {
             if (!file.isDirectory() && "AndroidManifest.xml".equals(file.getName())) {
                 return file;
@@ -167,7 +172,8 @@ public class GenerateViewPresenterAction extends AnAction {
 
     private void throwIfFileAlreadyExists(PsiDirectory resultDirectory, String fileName) {
         for (PsiFile file : resultDirectory.getFiles()) {
-            if (file.getName().equalsIgnoreCase(fileName)) {
+            String name = file.getName();
+            if (name != null && name.equalsIgnoreCase(fileName)) {
                 throw new CancellationException("File \"" + fileName + "\" already exists");
             }
         }
@@ -197,23 +203,31 @@ public class GenerateViewPresenterAction extends AnAction {
     }
 
     private PsiDirectory getPsiDirectoryFromPackage(PsiPackage selectedPackage) {
-        Project project = selectedPackage.getProject();
-        PsiDirectory[] directories = PackageUtil.getDirectories(selectedPackage, project, null, false);
-        if (directories.length > 1) {
-            String[] dirs = new String[directories.length];
-            for (int i = 0; i < directories.length; i++) {
-                dirs[i] = directories[i].getVirtualFile().getPath();
+        PsiDirectory[] allDirectories = PackageUtil.getDirectories(selectedPackage, null, false);
+        List<PsiDirectory> directories = new ArrayList<PsiDirectory>(allDirectories.length);
+        for (PsiDirectory directory : allDirectories) {
+            if (!JavaProjectRootsUtil.isInGeneratedCode(directory.getVirtualFile(), selectedPackage.getProject())) {
+                directories.add(directory);
             }
-            int index = Messages.showChooseDialog(project, "Package referenced to several folders. Select result destination",
-                    "Directory Selection",
-                    Messages.getQuestionIcon(),
+        }
+
+        if (directories.size() > 1) {
+            String[] dirs = new String[directories.size()];
+            for (int i = 0; i < directories.size(); i++) {
+                dirs[i] = directories.get(i).getVirtualFile().getPath();
+            }
+            ChooseDialog dialog = new ChooseDialog(selectedPackage.getProject(), "Directory Selection",
+                    "Package referenced to several folders. Select result destination",
                     dirs,
-                    dirs[0]);
-            if (index >= 0) {
-                return directories[index];
+                    0);
+            if (dialog.showAndGet()) {
+                int index = dialog.getSelectedIndex();
+                if (index >= 0) {
+                    return directories.get(index);
+                }
             }
-        } else if (directories.length == 1) {
-            return directories[0];
+        } else if (directories.size() == 1) {
+            return directories.get(0);
         }
         throw new CancellationException();
     }
@@ -255,16 +269,17 @@ public class GenerateViewPresenterAction extends AnAction {
     }
 
     private CodeGenerationPattern selectCodeGenerationPattern(Project project, VirtualFile first) {
-        int index = Messages.showChooseDialog(project, "Choose view code generation style for " + first.getName(),
-                "Generate View Code",
-                Messages.getQuestionIcon(),
+        ChooseDialog dialog = new ChooseDialog(project, "Generate View Code",
+                "Choose view code generation style for " + first.getName(),
                 patternNames,
-                patternNames[0]);
-        if (index >= 0) {
-            return generationPatterns[index];
-        } else {
-            throw new CancellationException();
+                0);
+        if (dialog.showAndGet()) {
+            int index = dialog.getSelectedIndex();
+            if (index >= 0) {
+                return generationPatterns[index];
+            }
         }
+        throw new CancellationException();
     }
 
     public void update(AnActionEvent e) {
