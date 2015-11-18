@@ -10,6 +10,21 @@ public abstract class AbstractCodeGenerationPattern implements CodeGenerationPat
     public static final String ANDROID_VIEW_GROUP_CLASS = "android.view.ViewGroup";
     public static final String ANDROID_LAYOUT_INFLATER_CLASS = "android.view.LayoutInflater";
     public static final String ANDROID_CONTEXT_CLASS = "android.content.Context";
+    public static final String ANDROID_RECYCLER_VIEW_CLASS = "android.support.v7.widget.RecyclerView";
+    public static final String ANDROID_RECYCLER_VIEW_VIEWHOLDER_CLASS = "android.support.v7.widget.RecyclerView.ViewHolder";
+    public static final String ANDROID_RECYCLER_VIEW_VIEWHOLDER_VIEW_FIELD_NAME = "itemView";
+
+    private boolean recyclerViewSupport;
+
+    @Override
+    public void setRecyclerViewSupport(boolean support) {
+        recyclerViewSupport = support;
+    }
+
+    @Override
+    public final boolean hasRecyclerViewSupport() {
+        return recyclerViewSupport;
+    }
 
     @Override
     public String getSuggestedClassName(String layoutFileName) {
@@ -35,6 +50,14 @@ public abstract class AbstractCodeGenerationPattern implements CodeGenerationPat
             addImport(psiClass, butterKnife.getInjectViewClass());
             addImport(psiClass, butterKnife.getInjectorPsiClass());
         }
+        if (recyclerViewSupport) {
+            PsiClass rvClass = ClassHelper.findClass(project, ANDROID_RECYCLER_VIEW_CLASS);
+            PsiClass rvHolderClass = ClassHelper.findClass(project, ANDROID_RECYCLER_VIEW_VIEWHOLDER_CLASS);
+
+            addImport(psiClass, rvClass);
+            psiClass.getExtendsList().add(factory.createClassReferenceElement(rvHolderClass));
+            generateRecyclerViewCompatConstructor(layoutFileName, psiClass);
+        }
         generateBody(androidView, layoutFileName, butterKnife, psiClass, project);
         addRClassImport(psiClass, androidManifest);
 
@@ -50,6 +73,29 @@ public abstract class AbstractCodeGenerationPattern implements CodeGenerationPat
         PsiFile containingFile = psiClass.getNavigationElement().getContainingFile();
         JavaCodeStyleManager manager = JavaCodeStyleManager.getInstance(psiClass.getProject());
         manager.addImport((PsiJavaFile) containingFile, importClass);
+    }
+
+    protected void generateRecyclerViewCompatConstructor(String layoutFileName, PsiClass psiClass) {
+        PsiElementFactory factory = JavaPsiFacade.getElementFactory(psiClass.getProject());
+        PsiMethod constructor = factory.createConstructor();
+        PsiClass layoutInflaterClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_LAYOUT_INFLATER_CLASS);
+        PsiParameter inflaterParam = factory.createParameter("inflater", factory.createType(layoutInflaterClass));
+        PsiClass viewGroupClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_VIEW_GROUP_CLASS);
+        PsiParameter viewParentParam = factory.createParameter("parent", factory.createType(viewGroupClass));
+        constructor.getParameterList().add(inflaterParam);
+        constructor.getParameterList().add(viewParentParam);
+
+        if (constructor.getBody() == null) {
+            throw new GenerateViewPresenterAction.CancellationException("Failed to create recyclerView compat constructor");
+        }
+
+        PsiStatement callPrimaryConstructorStatement =
+                factory.createStatementFromText("this(" + inflaterParam.getName() + ".inflate(R.layout."
+                        + FileUtil.removeExtension(layoutFileName)
+                        + ", " + viewParentParam.getName()
+                        + ", false));", constructor.getContext());
+        constructor.getBody().add(callPrimaryConstructorStatement);
+        psiClass.add(constructor);
     }
 
     protected abstract void generateBody(AndroidView androidView, String layoutFileName, ButterKnife butterKnife, PsiClass psiClass, Project project);

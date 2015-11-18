@@ -15,6 +15,7 @@ import java.awt.event.KeyEvent;
 public class ChooseDialog extends DialogWrapper {
 
     private ComboBox myComboBox;
+    private Project project;
     private String message;
 
     public ChooseDialog(final Project project,
@@ -23,6 +24,7 @@ public class ChooseDialog extends DialogWrapper {
                         String[] values,
                         int initialValueIndex) {
         super(project, true);
+        this.project = project;
         this.message = message;
         setTitle(title);
         init();
@@ -30,6 +32,10 @@ public class ChooseDialog extends DialogWrapper {
         //noinspection unchecked
         myComboBox.setModel(new DefaultComboBoxModel<String>(values));
         myComboBox.setSelectedIndex(initialValueIndex);
+    }
+
+    public Project getProject() {
+        return project;
     }
 
     @Nullable
@@ -57,7 +63,10 @@ public class ChooseDialog extends DialogWrapper {
         }
 
         myComboBox = new ComboBox(420);
-        messagePanel.add(myComboBox, BorderLayout.SOUTH);
+        messagePanel.add(myComboBox, BorderLayout.CENTER);
+
+        setupSouthOfMessagePanel(messagePanel);
+
         panel.add(messagePanel, BorderLayout.CENTER);
 
         myComboBox.addKeyListener(new KeyAdapter() {
@@ -69,6 +78,9 @@ public class ChooseDialog extends DialogWrapper {
         });
 
         return panel;
+    }
+
+    protected void setupSouthOfMessagePanel(JPanel messagePanel) {
     }
 
     @Override

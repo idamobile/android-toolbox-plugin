@@ -48,12 +48,19 @@ public class ViewHolderPattern extends AbstractCodeGenerationPattern {
             throw new GenerateViewPresenterAction.CancellationException("Failed to create ViewHolder constructor");
         }
 
+        if (hasRecyclerViewSupport()) {
+            constructor.getBody().add(factory.createStatementFromText(
+                    "super(" + viewParam.getName() + ");", constructor.getContext()));
+        }
+
         androidView.setTagName(ANDROID_VIEW_CLASS);
         androidView.setIdValue(viewParam.getName());
         if (butterKnife != null) {
             String injectorClassName = butterKnife.getInjectorPsiClass().getName();
             PsiStatement injectStatement =
-                    factory.createStatementFromText(injectorClassName + ".inject(this, " + viewParam.getName() + ");", constructor.getContext());
+                    factory.createStatementFromText(injectorClassName
+                            + "." + butterKnife.getMethodName()
+                            + "(this, " + viewParam.getName() + ");", constructor.getContext());
             constructor.getBody().add(injectStatement);
         } else {
             addFindViewStatements(factory, constructor, androidView, fieldMappings);

@@ -36,7 +36,7 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
         FieldGenerator fieldGenerator = new FieldGenerator();
         Map<AndroidView, PsiField> fieldMappings = fieldGenerator.generateFields(
                 androidView, project, butterKnife, new FieldGenerator.AddToPsiClassCallback(psiClass));
-        PsiField mainViewField = createMainViewField(psiClass);
+        PsiField mainViewField = createMainViewField(project, psiClass);
 
         PsiField dataField = null;
         if (dataClass != null) {
@@ -44,7 +44,9 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
         }
 
         generateConstructor(androidView, layoutFileName, butterKnife, fieldMappings, mainViewField, psiClass);
-        psiClass.add(PropertyUtil.generateGetterPrototype(mainViewField));
+        if (!hasRecyclerViewSupport()) {
+            psiClass.add(PropertyUtil.generateGetterPrototype(mainViewField));
+        }
 
         if (dataField != null) {
             psiClass.add(PropertyUtil.generateGetterPrototype(dataField));
@@ -53,13 +55,18 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
         }
     }
 
-    private PsiField createMainViewField(PsiClass psiClass) {
-        String name = "view";
-        PsiClass viewClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_VIEW_CLASS);
-        FieldGenerator generator = new FieldGenerator();
-        PsiField field = generator.createField(viewClass, name);
-        psiClass.add(field);
-        return field;
+    private PsiField createMainViewField(Project project, PsiClass psiClass) {
+        if (hasRecyclerViewSupport()) {
+            return ClassHelper.findField(ClassHelper.findClass(project, ANDROID_RECYCLER_VIEW_VIEWHOLDER_CLASS),
+                    ANDROID_RECYCLER_VIEW_VIEWHOLDER_VIEW_FIELD_NAME);
+        } else {
+            String name = "view";
+            PsiClass viewClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_VIEW_CLASS);
+            FieldGenerator generator = new FieldGenerator();
+            PsiField field = generator.createField(viewClass, name);
+            psiClass.add(field);
+            return field;
+        }
     }
 
     private PsiField createDataField(PsiClass psiClass) {
@@ -104,37 +111,53 @@ public class ViewPresenterPattern extends AbstractCodeGenerationPattern {
                                      PsiField mainViewField, PsiClass psiClass) {
         PsiElementFactory factory = JavaPsiFacade.getElementFactory(psiClass.getProject());
         PsiMethod constructor = factory.createConstructor();
-        PsiClass contextClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_CONTEXT_CLASS);
-        PsiParameter contextParam = factory.createParameter("context", factory.createType(contextClass));
-        PsiClass viewGroupClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_VIEW_GROUP_CLASS);
-        PsiParameter viewParentParam = factory.createParameter("parent", factory.createType(viewGroupClass));
-        constructor.getParameterList().add(contextParam);
-        constructor.getParameterList().add(viewParentParam);
 
-        if (constructor.getBody() == null) {
-            throw new GenerateViewPresenterAction.CancellationException("Failed to create ViewPresenter constructor");
-        }
+        if (hasRecyclerViewSupport()) {
+            PsiClass viewClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_VIEW_CLASS);
+            PsiParameter viewParam = factory.createParameter("view", factory.createType(viewClass));
+            constructor.getParameterList().add(viewParam);
 
-        PsiClass layoutInflaterClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_LAYOUT_INFLATER_CLASS);
-        PsiExpression iflaterInitialization = factory.createExpressionFromText(
-                layoutInflaterClass.getName() + ".from(" + contextParam.getName() + ")", constructor.getContext());
-        PsiDeclarationStatement inflaterDeclaration = factory.createVariableDeclarationStatement("inflater",
-                factory.createType(layoutInflaterClass), iflaterInitialization);
-        constructor.getBody().add(inflaterDeclaration);
+            if (constructor.getBody() == null) {
+                throw new GenerateViewPresenterAction.CancellationException("Failed to create ViewPresenter constructor");
+            }
 
+            constructor.getBody().add(factory.createStatementFromText(
+                    "super(" + viewParam.getName() + ");", constructor.getContext()));
+        } else {
+            PsiClass contextClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_CONTEXT_CLASS);
+            PsiParameter contextParam = factory.createParameter("context", factory.createType(contextClass));
+            PsiClass viewGroupClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_VIEW_GROUP_CLASS);
+            PsiParameter viewParentParam = factory.createParameter("parent", factory.createType(viewGroupClass));
+            constructor.getParameterList().add(contextParam);
+            constructor.getParameterList().add(viewParentParam);
 
-        PsiStatement inflateStatement = factory.createStatementFromText(mainViewField.getName()
-                + " = inflater.inflate(R.layout." + FileUtil.removeExtension(layoutFileName)
+            PsiClass layoutInflaterClass = ClassHelper.findClass(psiClass.getProject(), ANDROID_LAYOUT_INFLATER_CLASS);
+            PsiExpression iflaterInitialization = factory.createExpressionFromText(
+                    layoutInflaterClass.getName() + ".from(" + contextParam.getName() + ")", constructor.getContext());
+            PsiDeclarationStatement inflaterDeclaration = factory.createVariableDeclarationStatement("inflater",
+                    factory.createType(layoutInflaterClass), iflaterInitialization);
+            constructor.getBody().add(inflaterDeclaration);
+
+            PsiStatement inflateStatement = factory.createStatementFromText(mainViewField.getName()
+                    + " = inflater.inflate(R.layout." + FileUtil.removeExtension(layoutFileName)
                     + ", " + viewParentParam.getName()
                     + ", false);", constructor.getContext());
-        constructor.getBody().add(inflateStatement);
+
+            if (constructor.getBody() == null) {
+                throw new GenerateViewPresenterAction.CancellationException("Failed to create ViewPresenter constructor");
+            }
+
+            constructor.getBody().add(inflateStatement);
+        }
 
         androidView.setTagName(ANDROID_VIEW_CLASS);
         androidView.setIdValue(mainViewField.getName());
         if (butterKnife != null) {
             String injectorClassName = butterKnife.getInjectorPsiClass().getName();
             PsiStatement injectStatement =
-                    factory.createStatementFromText(injectorClassName + ".inject(this, " + mainViewField.getName() + ");", constructor.getContext());
+                    factory.createStatementFromText(injectorClassName
+                            + "." + butterKnife.getMethodName()
+                            + "(this, " + mainViewField.getName() + ");", constructor.getContext());
             constructor.getBody().add(injectStatement);
         } else {
             addFindViewStatements(factory, constructor, androidView, fieldMappings);

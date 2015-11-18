@@ -5,7 +5,8 @@ Android development speed up [plugin for IDEA](http://plugins.jetbrains.com/plug
 
 Features:
 * Generate ViewHolder or ViewPresenter from layout xml
-
+* Generates ButterKnife annotations, if ButterKnife presents in project dependencies
+* Optional inheritance from RecyclerView.ViewHolder
 
 Generating ViewHolder/ViewPresenter templates
 ---

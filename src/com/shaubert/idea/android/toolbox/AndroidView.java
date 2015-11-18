@@ -33,6 +33,10 @@ public class AndroidView implements TreeData {
                     || tagName.equals("SurfaceView")
                     ) {
                 className = "android.view." + tagName;
+            } else if (tagName.equals("GestureOverlayView")) {
+                className = "android.gesture." + tagName;
+            } else if (tagName.equals("WebView")) {
+                className = "android.webkit." + tagName;
             } else {
                 className = "android.widget." + tagName;
             }

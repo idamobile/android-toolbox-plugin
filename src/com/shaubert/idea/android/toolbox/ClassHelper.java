@@ -3,6 +3,7 @@ package com.shaubert.idea.android.toolbox;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiField;
 import com.intellij.psi.search.EverythingGlobalScope;
 
 public class ClassHelper {
@@ -61,5 +62,15 @@ public class ClassHelper {
             throw new GenerateViewPresenterAction.CancellationException("Class not found: " + className);
         }
         return viewClass;
+    }
+
+    public static PsiField findField(PsiClass psiClass, String fieldName) {
+        PsiField[] fields = psiClass.getAllFields();
+        for (PsiField field : fields) {
+            if (field.getName().equals(fieldName)) {
+                return field;
+            }
+        }
+        throw new GenerateViewPresenterAction.CancellationException("Field not found: " + fieldName);
     }
 }

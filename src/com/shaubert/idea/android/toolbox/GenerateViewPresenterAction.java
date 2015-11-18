@@ -29,16 +29,27 @@ import java.util.List;
 
 public class GenerateViewPresenterAction extends AnAction {
 
-    private final CodeGenerationPattern[] generationPatterns = new CodeGenerationPattern[] {
-            new ViewHolderPattern(),
-            new ViewPresenterPattern(),
+    private final CodeGenerationPatternBuilder[] generationPatterns = new CodeGenerationPatternBuilder[] {
+            new CodeGenerationPatternBuilder() {
+                @Override
+                public CodeGenerationPattern create() {
+                    return new ViewHolderPattern();
+                }
+            },
+
+            new CodeGenerationPatternBuilder() {
+                @Override
+                public CodeGenerationPattern create() {
+                    return new ViewPresenterPattern();
+                }
+            },
     };
 
     private final String[] patternNames;
     {
         patternNames = new String[generationPatterns.length];
         for (int i = 0; i < generationPatterns.length; i++) {
-            patternNames[i] = generationPatterns[i].getName();
+            patternNames[i] = generationPatterns[i].create().getName();
         }
     }
 
@@ -53,7 +64,7 @@ public class GenerateViewPresenterAction extends AnAction {
             final VirtualFile layoutFile = getSelectedLayoutFile(e);
             Module module = getModuleOfFile(project, layoutFile);
             final AndroidManifest androidManifest = getAndroidManifest(module, layoutFile);
-            AndroidView androidView = getAndroidViews(layoutFile);
+            AndroidView androidView = getAndroidViews(layoutFile, project);
 
             final CodeGenerationPattern pattern = selectCodeGenerationPattern(project, layoutFile);
             final AndroidView filteredViews = selectViews(project, androidView);
@@ -165,8 +176,8 @@ public class GenerateViewPresenterAction extends AnAction {
         return lookupForManifest(parent, topDirs);
     }
 
-    private AndroidView getAndroidViews(VirtualFile layoutFile) {
-        AndroidLayoutParser parser = new AndroidLayoutParser();
+    private AndroidView getAndroidViews(VirtualFile layoutFile, Project project) {
+        AndroidLayoutParser parser = new AndroidLayoutParser(project);
         return parser.parse(layoutFile);
     }
 
@@ -269,14 +280,16 @@ public class GenerateViewPresenterAction extends AnAction {
     }
 
     private CodeGenerationPattern selectCodeGenerationPattern(Project project, VirtualFile first) {
-        ChooseDialog dialog = new ChooseDialog(project, "Generate View Code",
-                "Choose view code generation style for " + first.getName(),
+        ChooseGenerationPatternDialog dialog = new ChooseGenerationPatternDialog(project,
+                first.getName(),
                 patternNames,
                 0);
         if (dialog.showAndGet()) {
             int index = dialog.getSelectedIndex();
             if (index >= 0) {
-                return generationPatterns[index];
+                CodeGenerationPattern pattern = generationPatterns[index].create();
+                pattern.setRecyclerViewSupport(dialog.hasRecyclerViewSupport());
+                return pattern;
             }
         }
         throw new CancellationException();

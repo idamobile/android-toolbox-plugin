@@ -5,12 +5,16 @@ import com.intellij.psi.PsiClass;
 
 public interface CodeGenerationPattern {
 
-    public String getName();
+    String getName();
 
-    public String getSuggestedClassName(String layoutFileName);
+    String getSuggestedClassName(String layoutFileName);
 
-    public PsiClass generateOutput(Project project, AndroidManifest androidManifest, AndroidView androidView, String layoutFileName, String outputClass);
+    PsiClass generateOutput(Project project, AndroidManifest androidManifest, AndroidView androidView, String layoutFileName, String outputClass);
 
-    public void setup(Project project);
+    void setup(Project project);
+
+    void setRecyclerViewSupport(boolean support);
+
+    boolean hasRecyclerViewSupport();
 
 }
