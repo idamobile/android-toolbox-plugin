@@ -1,7 +1,7 @@
 <idea-plugin version="2">
     <id>com.idamobile.android.toolbox</id>
     <name>Android Toolbox Plugin</name>
-    <version>1.1.5</version>
+    <version>1.1.6</version>
     <vendor email="as@idamob.ru" url="http://www.idamob.com">iDa Mobile</vendor>
 
     <description><![CDATA[
@@ -19,10 +19,7 @@
 
     <change-notes><![CDATA[
       <ul>
-        <li>Support "include" tag in layouts</li>
-        <li>ButterKnife 7.0</li>
-        <li>RecyclerView.ViewHolder compatible</li>
-        <li>Correct handling of GestureOverlayView and WebView</li>
+        <li>Ready for Android Studio 2.0</li>
       </ul>
       ]]>
     </change-notes>
