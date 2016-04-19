@@ -257,7 +257,7 @@ public class GenerateViewPresenterAction extends AnAction {
     }
 
     private PsiPackage selectDestinationPackage(Module module, AndroidManifest manifest) {
-        PackageChooserDialog packageChooserDialog = new PackageChooserDialog("Destination Package", module);
+        PackageChooserDialog packageChooserDialog = new PackageChooserDialog("Destination Package", module.getProject());
         if (lastSelectedPackage != null) {
             packageChooserDialog.selectPackage(lastSelectedPackage.getQualifiedName());
         } else {
